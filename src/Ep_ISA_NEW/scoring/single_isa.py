@@ -86,25 +86,43 @@ def isa_filter(
     null_isa_path,
     outpath,
     null_percentile,
+    tracks=None,
+    mode="positive_all_tracks",
 ):
     df = pd.read_csv(single_isa_path)
     null_df = pd.read_csv(null_isa_path)
-    isa_cols = [c for c in df.columns if c.startswith("isa_t")]
+    if tracks is None:
+        isa_cols = [c for c in df.columns if c.startswith("isa_t")]
+    else:
+        isa_cols = [f"isa_t{t}" for t in tracks]
+
     thresholds = derive_null_thresholds(
         null_df=null_df,
         cols=isa_cols,
         percentile=null_percentile,
     )
     logger.info(f"Filtering motifs using null-derived thresholds (p{null_percentile}): {thresholds}")
-    # Keep row if ANY track passes threshold.
-    filtered_df, _ = apply_threshold_filter(
-        df=df,
-        cols=isa_cols,
-        thresholds=thresholds,
-        rule="any_tails",
-    )
+
+    if mode == "positive_all_tracks":
+        mask = np.ones(len(df), dtype=bool)
+        for c in isa_cols:
+            mask &= df[c] >= thresholds[c]["pos"]
+        filtered_df = df[mask].copy()
+    elif mode == "any_tails":
+        filtered_df, _ = apply_threshold_filter(
+            df=df,
+            cols=isa_cols,
+            thresholds=thresholds,
+            rule="any_tails",
+        )
+    else:
+        raise ValueError(f"Unknown single ISA filter mode: {mode}")
+
     filtered_df.to_csv(outpath, index=False)
-    logger.info(f"Filtered single ISA saved to {outpath}. Kept {len(filtered_df)}/{len(df)} motifs.")
+    logger.info(
+        f"Filtered single ISA saved to {outpath}. "
+        f"Mode={mode}; cols={isa_cols}; kept {len(filtered_df)}/{len(df)} motifs."
+    )
     return filtered_df
 
 
@@ -123,6 +141,7 @@ def run_single_isa(
     num_regions_per_batch=200,
     pred_batch_size=1024,
     null_n_samples: int = 8192,
+    single_filter_mode="positive_all_tracks",
 ):
     if isinstance(fasta, str):
         fasta=bf.load_fasta(fasta)
@@ -191,6 +210,8 @@ def run_single_isa(
         null_isa_path=null_isa_outpath,
         outpath=single_isa_outpath,
         null_percentile=null_percentile,
+        tracks=tracks,
+        mode=single_filter_mode,
     )
     
     logger.info(f"Single ISA complete. Results saved to {single_isa_outpath}.")

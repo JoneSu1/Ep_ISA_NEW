@@ -30,6 +30,31 @@ def _detect_input_format(model):
     return 'channels_last'
 
 
+def _as_2d_prediction(x):
+    arr = x.numpy() if hasattr(x, "numpy") else np.asarray(x)
+    arr = np.asarray(arr)
+    if arr.ndim == 0:
+        return arr.reshape(1, 1)
+    if arr.ndim == 1:
+        return arr.reshape(-1, 1)
+    if arr.ndim == 2:
+        return arr
+    return arr.reshape(arr.shape[0], -1)
+
+
+def _normalize_model_output(preds):
+    if isinstance(preds, dict):
+        keys = sorted(preds.keys())
+        parts = [_as_2d_prediction(preds[k]) for k in keys]
+        return np.concatenate(parts, axis=1)
+
+    if isinstance(preds, (list, tuple)):
+        parts = [_as_2d_prediction(p) for p in preds]
+        return np.concatenate(parts, axis=1)
+
+    return _as_2d_prediction(preds)
+
+
 def compute_predictions(model, seqs, device=None, batch_size=1024, tracks=[0]):
     """
     TF/Keras inference for DNA sequences. Auto-detects input format
@@ -37,6 +62,14 @@ def compute_predictions(model, seqs, device=None, batch_size=1024, tracks=[0]):
 
     device param is accepted but ignored (TF manages GPU placement).
     """
+    seqs = list(seqs)
+    if len(seqs) == 0:
+        return np.empty((0, len(tracks)), dtype=float)
+
+    seq_lens = {len(str(s)) for s in seqs}
+    if len(seq_lens) != 1:
+        raise ValueError(f"All sequences in a prediction batch must have the same length. Got lengths: {sorted(seq_lens)}")
+
     x_np = one_hot_encode(seqs)
 
     input_format = _detect_input_format(model)
@@ -52,34 +85,41 @@ def compute_predictions(model, seqs, device=None, batch_size=1024, tracks=[0]):
         batch_x = x_np[i : i + batch_size]
         preds = model(batch_x, training=False)
 
-        if isinstance(preds, dict):
-            keys = sorted(preds.keys())
-            preds = np.column_stack([
-                p.numpy() if hasattr(p, 'numpy') else np.asarray(p)
-                for p in [preds[k] for k in keys]
-            ])
-        elif isinstance(preds, (list, tuple)):
-            preds = np.column_stack([
-                p.numpy() if hasattr(p, 'numpy') else np.asarray(p)
-                for p in preds
-            ])
-        else:
-            preds = preds.numpy() if hasattr(preds, 'numpy') else np.asarray(preds)
-
+        preds = _normalize_model_output(preds)
+        if preds.shape[0] != len(batch_x):
+            raise ValueError(
+                f"Model returned {preds.shape[0]} predictions for batch size {len(batch_x)}."
+            )
         all_preds.append(preds)
 
     result = np.concatenate(all_preds, axis=0)
 
-    if result.ndim == 1:
-        result = result.reshape(-1, 1)
-
     if result.shape[1] == 1:
+        invalid = [t for t in tracks if t != 0]
+        if invalid:
+            raise ValueError(
+                f"Requested tracks {tracks} from a single-output model. Only track 0 is valid."
+            )
         return result
 
-    valid_tracks = [t for t in tracks if t < result.shape[1]]
-    if not valid_tracks:
-        logger.warning(f"All tracks {tracks} out of range for "
-                       f"model with {result.shape[1]} outputs")
-        return result
+    invalid_tracks = [t for t in tracks if t < 0 or t >= result.shape[1]]
+    if invalid_tracks:
+        raise ValueError(
+            f"Requested tracks {tracks}, but model returned {result.shape[1]} outputs."
+        )
 
-    return result[:, valid_tracks]
+    return result[:, tracks]
+
+
+def audit_model_io(model, seqs, tracks):
+    preds = compute_predictions(model, seqs, tracks=tracks, batch_size=max(1, len(seqs)))
+    return {
+        "input_shape": getattr(model, "input_shape", None),
+        "output_shape": getattr(model, "output_shape", None),
+        "n_sequences": len(seqs),
+        "sequence_lengths": sorted({len(str(s)) for s in seqs}),
+        "tracks": list(tracks),
+        "prediction_shape": tuple(preds.shape),
+        "prediction_min": float(np.nanmin(preds)) if preds.size else np.nan,
+        "prediction_max": float(np.nanmax(preds)) if preds.size else np.nan,
+    }

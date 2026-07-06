@@ -240,6 +240,7 @@ class EpQuickStart:
                 num_regions_per_batch=isa_config.get("num_regions_per_batch", 200),
                 pred_batch_size=isa_config.get("pred_batch_size", 1024),
                 null_n_samples=isa_config.get("single_null_n_samples", 8192),
+                single_filter_mode=isa_config.get("single_filter_mode", "positive_all_tracks"),
             )
         else:
             logger.info(f"Skipping: single_isa (start_from='{start_from}')")

@@ -37,6 +37,7 @@ Compared with the previous Ep_ISA implementation:
 
 - single null default is `8192`, matching the updated deepISA default;
 - motif locations are deduplicated by `chrom,start,end,region`, keeping the highest score;
+- single ISA filtering defaults to `positive_all_tracks`, retaining motifs only when the requested target track passes the positive single-null threshold;
 - pair null default is `8192`;
 - pair-null pseudo-site length is the median motif length from observed motif pairs, matching updated deepISA;
 - raw pair scoring no longer writes final `interaction_t*` directly during `run_combi_isa()`;
@@ -45,6 +46,8 @@ Compared with the previous Ep_ISA implementation:
 - `calc_coop_score()` now consumes the normalized interaction table and pair null table.
 
 Ep_ISA_NEW keeps the Ep_ISA-specific fix that `pred_orig.csv` is computed for both motif and non-motif regions, so null ISA rows from non-motif regions can be scored safely.
+
+The positive single-filter default is important for the updated `add_interaction()` stage. The updated normalized interaction gate requires both motif singles to pass the target-track positive single-null threshold. If single ISA is filtered with the older `any_tails` rule, many negative or wrong-track motifs can enter `motif_combi_isa.csv`, and `interaction_t*` will become mostly `NaN`.
 
 ## Existing-data preflight audit
 

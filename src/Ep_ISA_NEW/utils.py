@@ -3,12 +3,18 @@ import pandas as pd
 from loguru import logger
 import os
 import sys
-import pyBigWig
+try:
+    import pyBigWig
+except ImportError:
+    pyBigWig = None
 from pathlib import Path
 
 
 
-import bioframe as bf
+try:
+    import bioframe as bf
+except ImportError:
+    bf = None
 import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.stats import mannwhitneyu
@@ -150,6 +156,8 @@ def resize_regions(df, seq_len):
 
 def quantify_bw(regions_df, bw_paths, seq_len):
     """Quantifies sum of signals from BigWig files with progress logging."""
+    if pyBigWig is None:
+        raise ImportError("pyBigWig is required for quantify_bw(). Install pyBigWig to use bigWig utilities.")
     regions_df = resize_regions(regions_df, seq_len)
     total_signals = np.zeros(len(regions_df))
     n_regions = len(regions_df)
@@ -178,6 +186,8 @@ def quantify_bw(regions_df, bw_paths, seq_len):
 
 def estimate_noise_threshold(bw_paths, seq_len, percentile=99):
     """Estimates a noise threshold using a non-functional background BED."""
+    if bf is None:
+        raise ImportError("bioframe is required for estimate_noise_threshold(). Install bioframe to use BED utilities.")
     bg_bed_path = get_data_resource("non_cCRE_non_blacklist_non_exon.bed")
     bg_df = bf.read_table(bg_bed_path, schema='bed')
     bg_df = bg_df.sample(n=50000, random_state=42)
