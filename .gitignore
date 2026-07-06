@@ -1,0 +1,16 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+*.so
+.ipynb_checkpoints/
+.DS_Store
+Thumbs.db
+*.log
+results_*/
+cross_task_plots/
+*.png
+!notebooks/*.png

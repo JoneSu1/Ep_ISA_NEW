@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "Ep_ISA_NEW"
+version = "0.1.0"
+description = "Ep_ISA_NEW: In Silico Ablation for TF cooperativity, adapted to consume Fi-NeMo scan results. Built on deepISA."
+authors = [
+    {name = "Junhua", email = "junhua@phd.drophila"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Intended Audience :: Science/Research",
+]
+
+dependencies = [
+    "tensorflow>=2.10.0",
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "loguru",
+    "tqdm",
+    "scikit-learn",
+    "pyBigWig",
+    "bioframe",
+    "biopython>=1.80",
+    "scipy",
+    "matplotlib",
+    "seaborn",
+    "requests",
+    "statsmodels",
+    "h5py>=3.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "jupyter",
+    "notebook",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
