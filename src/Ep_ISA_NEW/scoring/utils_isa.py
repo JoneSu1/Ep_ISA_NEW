@@ -54,6 +54,18 @@ def ablate_motifs(seq, motif_starts, motif_ends):
 def region_str_to_seq(fasta, region_str: str) -> str:
     chrom, coords = region_str.split(":")
     start_r, end_r = map(int, coords.split("-"))
-    return str(fasta[chrom][start_r:end_r]).upper()
+    expected_len = end_r - start_r
+
+    if region_str in fasta:
+        seq = str(fasta[region_str]).upper()
+    else:
+        seq = str(fasta[chrom][start_r:end_r]).upper()
+
+    if len(seq) < expected_len:
+        seq = seq + ("N" * (expected_len - len(seq)))
+    elif len(seq) > expected_len:
+        seq = seq[:expected_len]
+
+    return seq
 
 
