@@ -57,7 +57,9 @@ def region_str_to_seq(fasta, region_str: str) -> str:
     expected_len = end_r - start_r
 
     if region_str in fasta:
-        seq = str(fasta[region_str]).upper()
+        # slice materializes lazy pysam/bioframe records (str(record) returns
+        # the object repr for PysamFastaRecord and would N-pad downstream)
+        seq = str(fasta[region_str][:]).upper()
     else:
         seq = str(fasta[chrom][start_r:end_r]).upper()
 

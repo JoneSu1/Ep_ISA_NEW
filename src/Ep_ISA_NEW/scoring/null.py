@@ -107,7 +107,7 @@ def sample_null_kmers(
     elif len(out) < n_samples:
         # Top up from already sampled rows (keeps approximate matched distribution).
         if len(out) > 0:
-            topup = out.sample(n=n_samples - len(out))
+            topup = out.sample(n=n_samples - len(out), random_state=0)
             out = pd.concat([out, topup], ignore_index=True)
 
     return out.reset_index(drop=True)
@@ -129,6 +129,7 @@ def generate_null_pairs(
     2. Combinatorial inter-gap pairing.
     3. Distribution matching for intra-gap sampling in long regions.
     """
+    rng = np.random.default_rng(0)
     non_motif_df = pd.read_csv(non_motif_df_path)
     non_motif_df["length"] = non_motif_df["end_rel"] - non_motif_df["start_rel"]
     df = non_motif_df[non_motif_df["length"] >= k].copy()
@@ -186,7 +187,7 @@ def generate_null_pairs(
         available_inter = pool_df[mask]
 
         if len(available_inter) >= count_needed:
-            final_nulls.append(available_inter.sample(count_needed))
+            final_nulls.append(available_inter.sample(count_needed, random_state=0))
             continue
 
         final_nulls.append(available_inter)
@@ -196,14 +197,14 @@ def generate_null_pairs(
         if long_gaps.empty: continue
         sampled_intra = []
         for _ in range(remaining):
-            gap = long_gaps.sample(1).iloc[0]
+            gap = long_gaps.iloc[int(rng.integers(len(long_gaps)))].copy()
             max_d = min(hi, int(gap["length"] - 2 * k))
             if max_d <= lo: continue
-            d = np.random.randint(lo, max_d)
+            d = int(rng.integers(lo, max_d))
             s1_min = int(gap["start_rel"])
             s1_max = int(gap["end_rel"] - (2 * k + d))
             if s1_max <= s1_min: continue
-            s1 = np.random.randint(s1_min, s1_max)
+            s1 = int(rng.integers(s1_min, s1_max))
             e1 = int(s1 + k)
             s2 = int(e1 + d)
             e2 = int(s2 + k)
